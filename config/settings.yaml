@@ -1,0 +1,86 @@
+# Configurações do Radar de Reputação Reclame AQUI
+
+# Configurações gerais
+project:
+  name: "Radar de Reputação Reclame AQUI"
+  version: "1.0.0"
+  description: "Sistema de monitoramento de reclamações e análise de reputação"
+
+# Configurações de coleta
+collection:
+  base_url: "https://www.reclameaqui.com.br"
+  max_pages_per_company: 100
+  delay_between_requests:
+    min: 10
+    max: 20
+  timeout: 30
+  max_retries: 3
+
+  # Configurações do Selenium
+  selenium:
+    headless: false
+    window_size: "1920,1080"
+    user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# Configurações de processamento
+processing:
+  batch_size: 1000
+  parallel_workers: 4
+
+  # Análise de sentimento
+  sentiment:
+    model: "pt_core_news_sm"  # Modelo spaCy para português
+    confidence_threshold: 0.6
+
+  # Categorização
+  categories:
+    - "Produto/Serviço"
+    - "Atendimento"
+    - "Entrega"
+    - "Pagamento"
+    - "Qualidade"
+    - "Outro"
+
+# Configurações de análise
+analysis:
+  kpis:
+    - satisfaction_rate
+    - response_time_avg
+    - resolution_rate
+    - complaint_trend
+    - reputation_score
+
+  # Alertas
+  alerts:
+    low_satisfaction_threshold: 0.3
+    high_complaint_volume_threshold: 50
+
+# Configurações do dashboard
+dashboard:
+  theme: "light"
+  refresh_interval: 3600  # segundos
+  max_chart_points: 1000
+
+  # Páginas disponíveis
+  pages:
+    - overview
+    - trends
+    - companies
+    - detailed_analysis
+
+# Configurações de logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/radar_reputacao.log"
+
+# Configurações de banco de dados (opcional)
+database:
+  enabled: false
+  type: "sqlite"  # sqlite, postgresql, mysql
+  connection_string: "sqlite:///data/reclame_aqui.db"
+
+# Configurações de deploy
+deploy:
+  docker_image: "radar-reputacao:latest"
+  port: 8501
