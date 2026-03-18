@@ -1,0 +1,68 @@
+# Lista de empresas para monitoramento no Reclame AQUI
+
+companies:
+  - name: "Magazine Luiza"
+    url_slug: "magazine-luiza-loja-online"
+    sector: "Varejo"
+    priority: "high"
+    active: true
+
+  - name: "Americanas"
+    url_slug: "americanas-com"
+    sector: "Varejo"
+    priority: "high"
+    active: true
+
+  - name: "Casas Bahia"
+    url_slug: "casas-bahia"
+    sector: "Varejo"
+    priority: "medium"
+    active: true
+
+  - name: "Nubank"
+    url_slug: "nubank"
+    sector: "Finanças"
+    priority: "high"
+    active: true
+
+  - name: "iFood"
+    url_slug: "ifood"
+    sector: "Alimentação"
+    priority: "high"
+    active: true
+
+  - name: "Uber"
+    url_slug: "uber"
+    sector: "Transporte"
+    priority: "medium"
+    active: true
+
+# Setores disponíveis
+sectors:
+  - "Varejo"
+  - "Serviços"
+  - "Tecnologia"
+  - "Financeiro"
+  - "Saúde"
+  - "Educação"
+  - "Transporte"
+  - "Alimentação"
+  - "Outro"
+
+# Níveis de prioridade
+priorities:
+  - "high"    # Coleta diária
+  - "medium"  # Coleta semanal
+  - "low"     # Coleta mensal
+
+# Configurações de coleta por prioridade
+collection_schedule:
+  high:
+    frequency: "daily"
+    max_pages: 50
+  medium:
+    frequency: "weekly"
+    max_pages: 20
+  low:
+    frequency: "monthly"
+    max_pages: 10
