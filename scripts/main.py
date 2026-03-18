@@ -1,4 +1,4 @@
-from collectors.collect_link_data import coletar_dados
+from collectors.collect_links_data import coletar_dados
 from collectors.collect_links import coletar_links
 
 if __name__ == "__main__":
