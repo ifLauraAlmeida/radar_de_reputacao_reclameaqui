@@ -1,0 +1,161 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radar-reputacao-reclameaqui"
+version = "1.0.0"
+description = "Sistema completo para coleta, análise e visualização de dados de reclamações do Reclame AQUI"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Seu Nome", email = "seu.email@exemplo.com"},
+]
+maintainers = [
+    {name = "Seu Nome", email = "seu.email@exemplo.com"},
+]
+keywords = ["reclameaqui", "reputacao", "analise", "dashboard", "selenium"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
+
+dependencies = [
+    "pandas>=2.0.0",
+    "selenium>=4.15.0",
+    "streamlit>=1.28.0",
+    "plotly>=5.17.0",
+    "pyyaml>=6.0.0",
+    "webdriver-manager>=4.0.0",
+    "click>=8.1.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.7.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+nlp = [
+    "spacy>=3.7.0",
+    "transformers>=4.35.0",
+    "torch>=2.1.0",
+]
+db = [
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+]
+api = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+]
+all = [
+    "radar-reputacao-reclameaqui[dev,nlp,db,api]",
+]
+
+[project.urls]
+Homepage = "https://github.com/seu-usuario/radar-reputacao-reclameaqui"
+Documentation = "https://github.com/seu-usuario/radar-reputacao-reclameaqui#readme"
+Repository = "https://github.com/seu-usuario/radar-reputacao-reclameaqui.git"
+Issues = "https://github.com/seu-usuario/radar-reputacao-reclameaqui/issues"
+Changelog = "https://github.com/seu-usuario/radar-reputacao-reclameaqui/blob/main/CHANGELOG.md"
+
+[project.scripts]
+radar-collect = "scripts.collect_data:cli"
+radar-dashboard = "streamlit_app.app:main"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "selenium.*",
+    "webdriver_manager.*",
+    "streamlit.*",
+    "plotly.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=src --cov-report=html --cov-report=term-missing"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "src/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
