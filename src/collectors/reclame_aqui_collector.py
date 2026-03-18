@@ -150,24 +150,31 @@ class ReclameAquiCollector:
         self.min_delay = delay.get("min", 10)
         self.max_delay = delay.get("max", 20)
 
-        self.docs_root = Path("docs")
-        self.company_slug = self.base_url.rstrip("/").split("/")[-1] or "empresa"
-        self.silver_dir = self.docs_root / "silver" / self.company_slug
-
+        self.bronze_dir = Path("docs") / "bronze"
+        self.bronze_dir.mkdir(parents=True, exist_ok=True)
+        self.csv_path = self.bronze_dir / "complaints.csv"
         self.driver = None
 
-    def _ensure_docs_structure(self):
-        """Cria a estrutura de pastas medallion em `docs/`."""
-
-        self.silver_dir.mkdir(parents=True, exist_ok=True)
-
-    def _append_silver(self, rows: list[dict[str, str]]):
-        path = self.silver_dir / "complaints.csv"
-        header = not path.exists()
+    def _get_last_page(self):
         import pandas as pd
 
+        if self.csv_path.exists():
+            try:
+                df = pd.read_csv(self.csv_path, sep=";", encoding="utf-8-sig")
+                if not df.empty and "page" in df.columns:
+                    return int(df["page"].max())
+            except Exception:
+                pass
+        return 0
+
+    def _append_bronze(self, rows: list[dict[str, str]]):
+        import pandas as pd
+
+        header = not self.csv_path.exists()
         df = pd.DataFrame(rows)
-        df.to_csv(path, mode="a", index=False, header=header, sep=";", encoding="utf-8-sig")
+        df.to_csv(
+            self.csv_path, mode="a", index=False, header=header, sep=";", encoding="utf-8-sig"
+        )
 
     def _scrape_current_page(self, page_num: int) -> list[dict[str, str]]:
         """Extrai os dados estruturados da página atual."""
@@ -197,7 +204,8 @@ class ReclameAquiCollector:
             return False
 
     def open_and_wait(self):
-        """Abre o navegador e coleta dados clicando no botão de navegação."""
+        """Abre o navegador, retoma coleta e salva complaints.csv em bronze/."""
+        import pandas as pd
 
         try:
             self.driver = _configurar_driver_chrome(self.chrome_binary)
@@ -208,24 +216,31 @@ class ReclameAquiCollector:
                 f"Erro: {e}"
             )
 
-        self._ensure_docs_structure()
+        last_page = self._get_last_page()
+        if last_page > 0:
+            print(f"A última página lida foi a {last_page}.")
+            print("Faça login manualmente e resolva desafios no navegador.")
+            print("Posicione-se na página correta (recuada) e pressione ENTER.")
+            recuo = max(1, last_page - 1)
+            print(f"Voltando para a página {recuo} para garantir integridade.")
+            input("Aguardando ENTER...")
+            page = recuo
+        else:
+            print(f"🚀 Abrindo: {self.base_url}")
+            self.driver.get(self.base_url)
+            print("\n" + "=" * 60)
+            print("⚠️  Ação manual necessária:")
+            print("  1) Resolva cookies / captchas no navegador")
+            print("  2) Navegue até a lista de reclamações da loja alvo")
+            print("  3) Volte para este terminal e pressione ENTER para começar a coleta")
+            print("=" * 60 + "\n")
+            input("Aguardando ENTER...")
+            page = 1
 
-        print(f"🚀 Abrindo: {self.base_url}")
-        self.driver.get(self.base_url)
-
-        print("\n" + "=" * 60)
-        print("⚠️  Ação manual necessária:")
-        print("  1) Resolva cookies / captchas no navegador")
-        print("  2) Navegue até a lista de reclamações da loja alvo")
-        print("  3) Volte para este terminal e pressione ENTER para começar a coleta")
-        print("=" * 60 + "\n")
-        input("Aguardando ENTER...")
-
-        page = 1
         while page <= self.max_pages:
             rows = self._scrape_current_page(page)
             if rows:
-                self._append_silver(rows)
+                self._append_bronze(rows)
                 print(f"✅ Página {page} coletada: {len(rows)} itens")
             else:
                 print(f"⚠️ Página {page} coletada: 0 itens")
