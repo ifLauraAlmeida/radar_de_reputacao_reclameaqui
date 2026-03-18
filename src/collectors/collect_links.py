@@ -1,8 +1,8 @@
 """
-Coleta dados individuais de cada reclamação a partir das URLs no CSV.
+Coleta URLs de reclamações individuais a partir das páginas de listagem.
 
-Fonte: páginas individuais de reclamação (Astro SSR — HTML estático)
-Técnica: requests + BeautifulSoup com seletores data-testid
+Fonte: https://www.reclameaqui.com.br/empresa/mcdonalds/lista-reclamacoes/?pagina=N
+Técnica: parse do __NEXT_DATA__ (Next.js SSR) via requests
 """
 
 import csv
@@ -11,14 +11,13 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
-from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-INPUT_CSV = Path("data/mcdonalds_reclamacoes_links.csv")
-OUTPUT_DIR = Path("data/reclamacoes")
-DELAY = 10  # segundos entre requisições
+OUTPUT_CSV = Path("data/mcdonalds_reclamacoes_links.csv")
+DELAY = 10  # segundos entre páginas
 
 BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -34,139 +33,110 @@ BROWSER_HEADERS = {
 }
 
 
-def extrair_com_bs4(html: str) -> dict:
-    """Extrai os campos da página de detalhe de uma reclamação."""
-    soup = BeautifulSoup(html, "html.parser")
+def extrair_links(html: str, link_re: re.Pattern) -> list:
+    """Extrai URLs de reclamações do HTML da página de listagem."""
+    links = []
 
-    titulo = ""
-    el = soup.find(attrs={"data-testid": "complaint-title"})
-    if el:
-        titulo = el.get_text(strip=True)
+    # Tentativa 1: parse do JSON embutido em __NEXT_DATA__
+    match = re.search(
+        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>', html, re.DOTALL
+    )
+    if match:
+        try:
+            data = json.loads(match.group(1))
+            hrefs = []
 
-    descricao = ""
-    el = soup.find(attrs={"data-testid": "complaint-description"})
-    if not el:
-        el = soup.find(id="complaint-description")
-    if el:
-        descricao = el.get_text(strip=True)
+            def walk(obj):
+                if isinstance(obj, str) and link_re.search(obj):
+                    hrefs.append(obj)
+                elif isinstance(obj, dict):
+                    for v in obj.values():
+                        walk(v)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        walk(item)
 
-    status = ""
-    el = soup.find(attrs={"data-testid": "complaint-status-text"})
-    if el:
-        status = el.get_text(strip=True)
+            walk(data)
+            for h in hrefs:
+                m = link_re.search(h)
+                if m:
+                    links.append(f"https://www.reclameaqui.com.br{m.group(0)}")
+        except json.JSONDecodeError:
+            pass
 
-    local = ""
-    data_rec = ""
-    id_numerico = ""
-    for p in soup.find_all("p"):
-        txt = p.get_text(strip=True)
-        if p.find("svg") and re.search(r"\b[A-Z][a-záéíóúâêôãõç]+ - [A-Z]{2}\b", txt):
-            m = re.search(r"([A-Z][a-záéíóúâêôãõç ]+\s*-\s*[A-Z]{2})", txt)
-            local = m.group(1).strip() if m else txt
-        elif re.search(r"\d{2}/\d{2}/\d{4}", txt):
-            data_rec = txt
-        elif re.search(r"\bID:\s*\d+", txt):
-            m = re.search(r"ID:\s*(\d+)", txt)
-            id_numerico = m.group(1) if m else ""
+    # Tentativa 2: regex direto no HTML (fallback)
+    if not links:
+        raw = link_re.findall(html)
+        for slug in raw:
+            links.append(f"https://www.reclameaqui.com.br{slug}")
 
-    resposta_empresa = ""
-    el = soup.find(attrs={"data-testid": "company-reply"})
-    if not el:
-        el = soup.find(id="company-reply")
-    if not el:
-        heading = soup.find(
-            lambda t: t.name in ("h2", "h3", "h4")
-            and "empresa" in t.get_text(strip=True).lower()
-        )
-        if heading:
-            nxt = heading.find_next("p")
-            if nxt:
-                el = nxt
-    if el:
-        txt = el.get_text(strip=True)
-        resposta_empresa = txt if len(txt) >= 20 else ""
-
-    return {
-        "titulo": titulo,
-        "descricao": descricao,
-        "status": status,
-        "local": local,
-        "data": data_rec,
-        "id_numerico": id_numerico,
-        "resposta_empresa": resposta_empresa,
-    }
+    return list(dict.fromkeys(links))  # remove duplicatas mantendo ordem
 
 
-def nome_arquivo(url: str, id_numerico: str, timestamp: str) -> str:
-    """Gera o nome do arquivo JSON com ID (ou slug) e timestamp de coleta."""
-    base = id_numerico if id_numerico else url.rstrip("/").split("/")[-1]
-    return f"{base}_{timestamp}.json"
+def carregar_links_existentes() -> set:
+    """Lê o CSV e retorna o conjunto de URLs já salvas."""
+    if not OUTPUT_CSV.exists():
+        return set()
+    with open(OUTPUT_CSV, encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        return {row["url"] for row in reader}
 
 
-def coletar_dados():
-    """Lê o CSV de links e salva os dados de cada reclamação em JSON."""
-    if not INPUT_CSV.exists():
-        print(f"CSV não encontrado: {INPUT_CSV}")
-        print("Execute primeiro a Fase 1 (coletar_links).")
-        return
+def salvar_links(novos_links: list, collected_at: str):
+    """Adiciona os novos links ao CSV (cria o arquivo + cabeçalho se necessário)."""
+    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    novo_arquivo = not OUTPUT_CSV.exists()
 
-    with open(INPUT_CSV, encoding="utf-8", newline="") as f:
-        urls = [row["url"] for row in csv.DictReader(f)]
+    with open(OUTPUT_CSV, "a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["url", "collected_at"])
+        if novo_arquivo:
+            writer.writeheader()
+        for url in novos_links:
+            writer.writerow({"url": url, "collected_at": collected_at})
 
-    if not urls:
-        print("Nenhuma URL no CSV.")
-        return
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"=== Fase 2: Coletando dados de {len(urls)} reclamações ===")
+def coletar_links(target_url: str, paginas: int = 15, sleep_delay: int = DELAY):
+    """Percorre as páginas de listagem e salva as URLs no CSV."""
+    # Extrai o slug da empresa a partir da URL (ex: .../empresa/mcdonalds/lista-...)
+    partes = urlparse(target_url).path.strip("/").split("/")
+    company_slug = partes[1] if len(partes) > 1 else partes[0]
+    link_re = re.compile(rf'/{company_slug}/[^"\'<>\s]+_[A-Za-z0-9_-]+/')
+    print(f"  Slug identificado: {company_slug}")
 
-    ok = 0
-    erros = 0
+    print(f"=== Fase 1: Coletando links de {paginas} páginas ===")
+    existentes = carregar_links_existentes()
+    print(f"  Links já no CSV: {len(existentes)}")
 
-    for i, url in enumerate(tqdm(urls, desc="Reclamações", unit="rec"), 1):
-        tqdm.write(f"\n[{i}/{len(urls)}] {url}")
+    total_novos = 0
+
+    for pagina in tqdm(range(1, paginas + 1), desc="Páginas", unit="pág"):
+        url = f"{target_url}{pagina}"
+        tqdm.write(f"\n[Página {pagina}/{paginas}] {url}")
 
         try:
             r = requests.get(url, headers=BROWSER_HEADERS, timeout=20)
-            r.encoding = "utf-8"
-            tqdm.write(f"  HTTP {r.status_code} | {len(r.text)} chars")
+            print(f"  HTTP {r.status_code} | {len(r.text)} chars")
 
             if r.status_code != 200:
                 tqdm.write(f"  Pulando — status {r.status_code}")
-                erros += 1
             else:
-                dados = extrair_com_bs4(r.text)
-                dados["url"] = url
-
-                id_numerico = dados.get("id_numerico", "")
-
-                # Pula se já existe algum arquivo com o mesmo ID (independente do timestamp)
-                padrao = (
-                    f"{id_numerico}_*.json"
-                    if id_numerico
-                    else f"{url.rstrip('/').split('/')[-1]}_*.json"
+                collected_at = datetime.now().isoformat(timespec="seconds")
+                links = extrair_links(r.text, link_re)
+                novos = [l for l in links if l not in existentes]
+                salvar_links(novos, collected_at)
+                existentes.update(novos)
+                total_novos += len(novos)
+                tqdm.write(
+                    f"  {len(links)} links extraídos | {len(novos)} novos | total acumulado: {len(existentes)}"
                 )
-                if list(OUTPUT_DIR.glob(padrao)):
-                    tqdm.write(f"  Já coletado ({id_numerico}) — pulando")
-                    ok += 1
-                else:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    arquivo = OUTPUT_DIR / nome_arquivo(url, id_numerico, timestamp)
-                    arquivo.write_text(
-                        json.dumps(dados, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
-                    tqdm.write(
-                        f"  Salvo: {arquivo.name} | título: {dados.get('titulo', '')[:60]}"
-                    )
-                    ok += 1
 
         except Exception as e:
             tqdm.write(f"  Erro: {e}")
-            erros += 1
 
-        if i < len(urls):
+        if pagina < paginas:
             tqdm.write(f"  Aguardando {DELAY}s...")
             time.sleep(DELAY)
 
-    print(f"\n=== Fase 2 concluída: {ok} OK | {erros} erros ===")
+    print(
+        f"\n=== Fase 1 concluída: {total_novos} novos links salvos em {OUTPUT_CSV} ==="
+    )
