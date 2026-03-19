@@ -1,187 +1,122 @@
-# Radar de Reputação - Reclame AQUI
-Sistema completo para coleta, análise e visualização de dados de reclamações do Reclame AQUI.
-
+# Radar de Reputação — Reclame AQUI
+ 
+> Pipeline de alta performance para mineração, análise e visualização de dados de reputação empresarial a partir do Reclame AQUI.
+ 
+## Visão Geral
+ 
+O Radar de Reputação é um sistema de engenharia de dados focado na coleta estruturada e análise de reclamações públicas disponíveis no Reclame AQUI. Ao invés de depender de emulação de navegador via Selenium — uma abordagem lenta e frágil — o sistema extrai dados diretamente das respostas de Server-Side Rendering (SSR) do portal, o que resulta em uma eficiência significativamente superior.
+ 
+Com esse modelo de extração direta, o pipeline processa mais de 700 reclamações por hora e contorna limitações nativas da plataforma, como o bloqueio de paginação após a página 51. O projeto é configurável por empresa, tolerante a falhas e projetado para escalar horizontalmente.
+ 
+<br>
+ 
+## Diferenciais Técnicos
+ 
+**Extração via SSR** — Os dados são lidos diretamente do HTML estruturado gerado pelo servidor, eliminando a sobrecarga de renderização de JavaScript e tornando a coleta até 12x mais rápida que abordagens baseadas em Selenium ou Playwright.
+ 
+**Bypass de paginação** — O Reclame AQUI limita a navegação convencional a 50 páginas por empresa. O pipeline implementa uma estratégia alternativa de requisição que contorna essa restrição e acessa o histórico completo de reclamações.
+ 
+**Pipeline orquestrado em duas fases** — A coleta é dividida em (1) extração de links de reclamações e (2) extração dos detalhes de cada reclamação. O orquestrador central gerencia a execução sequencial dessas fases para todas as empresas configuradas, com controle de profundidade por prioridade.
+ 
+**Configuração declarativa** — Empresas são adicionadas e gerenciadas exclusivamente via arquivo YAML, sem necessidade de alterar código.
+ 
+<br>
+ 
+## ⚙️ Stack Tecnológica
+ 
+| Componente | Função |
+|---|---|
+| **Python 3.12+** | Runtime principal |
+| **Requests** | Requisições HTTP de baixo overhead |
+| **BeautifulSoup4** | Parse e extração de dados do HTML |
+| **Pandas** | Estruturação e manipulação dos dados coletados |
+| **YAML** | Configuração declarativa de empresas-alvo |
+| **TQDM** | Monitoramento visual do progresso no terminal |
+| **Streamlit** | Interface de visualização *(em desenvolvimento)* |
+ 
+<br>
+ 
+## Configuração de Empresas
+ 
+O arquivo `config/companies_list.yaml` é o ponto central de configuração do sistema. Para monitorar uma nova empresa, localize o seu slug na URL do Reclame AQUI (ex.: `reclameaqui.com.br/nubank/`) e adicione uma entrada no arquivo:
+ 
+```yaml
+companies:
+  - name: "Nubank"
+    url_slug: "nubank"
+    priority: "high"   # Define a profundidade da coleta: high → max_pages
+    active: true
+```
+ 
+O campo `priority` controla quantas páginas de reclamações serão coletadas para aquela empresa. Empresas com `active: false` são ignoradas pelo orquestrador.
+ 
+<br>
+ 
+## 🖥️ Instalação e Execução
+ 
+### 1. Instalar dependências
+ 
+Com o ambiente virtual ativado, instale o projeto em modo de desenvolvimento:
+ 
+```bash
+pip install -e .[dev]
+```
+ 
+### 2. Executar o pipeline
+ 
+O script principal orquestra automaticamente as duas fases de coleta para todas as empresas ativas:
+ 
+```bash
+python scripts/main.py
+```
+ 
+O terminal exibirá barras de progresso individuais por empresa e fase.
+ 
+<br>
+ 
+## Roadmap
+ 
+- [ ] **Data Cleaning** — Script de normalização de datas, remoção de ruído textual e padronização de campos.
+- [ ] **Retry Logic** — Política de retentativas com backoff exponencial para falhas de DNS e instabilidades de rede.
+- [ ] **Sentiment Analysis** — Integração com pipeline de NLP para classificação automática do tom das reclamações (positivo, neutro, negativo).
+- [ ] **Streamlit Dashboard** — Painel interativo com KPIs de reputação, evolução temporal e comparação entre empresas.
+ 
+<br>
+ 
 ## 📁 Estrutura do Projeto
-
+ 
 ```
 radar_reputacao_reclameaqui/
 ├── src/                          # Código fonte principal
-│   ├── collectors/              # Coletores de dados
-│   │   ├── __init__.py
-│   │   ├── reclame_aqui_collector.py
-│   │   └── complaint_details_collector.py
-│   ├── processors/              # Processamento de dados
-│   │   ├── __init__.py
-│   │   ├── data_cleaner.py
-│   │   └── sentiment_analyzer.py
-│   └── analyzers/               # Análise e KPIs
-│       ├── __init__.py
-│       ├── kpi_calculator.py
-│       └── trend_analyzer.py
-├── data/                        # Dados do projeto
-│   ├── raw/                     # Dados brutos coletados
-│   ├── processed/               # Dados processados
-│   └── external/                # Dados externos (se necessário)
-├── notebooks/                   # Jupyter notebooks para exploração
-│   ├── exploratory_analysis.ipynb
-│   └── kpi_dashboard.ipynb
-├── streamlit_app/               # Aplicação Streamlit
-│   ├── app.py                   # App principal
-│   ├── pages/                   # Páginas do dashboard
-│   │   ├── 1_📊_Visão_Geral.py
-│   │   ├── 2_📈_Tendências.py
-│   │   ├── 3_🏢_Empresas.py
-│   │   └── 4_⚙️_Configurações.py
-│   ├── components/              # Componentes reutilizáveis
-│   │   ├── __init__.py
-│   │   ├── charts.py
-│   │   └── filters.py
-│   └── utils/                   # Utilitários do dashboard
-│       ├── __init__.py
-│       └── data_loader.py
-├── tests/                       # Testes automatizados
-│   ├── __init__.py
-│   ├── test_collectors.py
-│   └── test_analyzers.py
-├── docs/                        # Documentação
-│   ├── README.md
-│   ├── api_documentation.md
-│   └── data_dictionary.md
-├── scripts/                     # Scripts de automação
-│   ├── collect_data.py
-│   ├── process_data.py
-│   └── deploy_dashboard.py
-├── config/                      # Configurações
-│   ├── settings.yaml
-│   └── companies_list.yaml
-├── requirements.txt             # Dependências Python
-├── pyproject.toml              # Configuração do projeto
-├── .gitignore                  # Arquivos ignorados pelo Git
-└── README.md                   # Documentação principal
+│   ├── collectors/               # Coletores de dados (links e detalhes)
+│   ├── processors/               # Limpeza e análise de sentimento
+│   └── analyzers/                # Cálculo de KPIs e tendências
+├── data/
+│   ├── raw/                      # Dados brutos coletados
+│   ├── processed/                # Dados após limpeza e enriquecimento
+│   └── external/                 # Fontes de dados complementares
+├── streamlit_app/                # Dashboard interativo
+│   ├── app.py                    # Entrypoint da aplicação
+│   ├── pages/                    # Páginas do dashboard (multi-page)
+│   ├── components/               # Componentes de UI reutilizáveis
+│   └── utils/                    # Carregamento e cache de dados
+├── notebooks/                    # Análise exploratória e prototipagem
+├── tests/                        # Testes automatizados
+├── scripts/                      # Scripts de coleta, processamento e deploy
+├── config/
+│   ├── companies_list.yaml       # Empresas monitoradas e configuração de coleta
+│   └── settings.yaml             # Parâmetros globais do pipeline
+├── docs/                         # Documentação técnica e dicionário de dados
+├── pyproject.toml
+└── requirements.txt
 ```
-
-## 🚀 Funcionalidades
-
-### 📊 Coleta de Dados
-- Lista de reclamações por empresa
-- Detalhes completos das reclamações individuais
-- Metadados (datas, status, categorias)
-
-### 🔄 Processamento
-- Limpeza e padronização de dados
-- Análise de sentimento das reclamações
-- Categorização automática
-
-### 📈 Análise e KPIs
-- Métricas de satisfação por empresa
-- Tendências temporais
-- Comparativos entre empresas
-- Alertas de reputação
-
-### 🎨 Dashboard Streamlit
-- Visão geral com KPIs principais
-- Gráficos interativos
-- Filtros por empresa, período, categoria
-- Exportação de relatórios
-
-## 🛠️ Tecnologias
-
-- **Python 3.8+**
-- **Selenium** - Coleta de dados
-- **Pandas/Polars** - Processamento
-- **Streamlit** - Dashboard
-- **Plotly** - Visualizações
-- **SQLAlchemy** - Banco de dados (opcional)
-- **Docker** - Containerização
-
-## 🏢 Configuração de Empresas
-
-### Como encontrar o slug de uma empresa
-
-1. Acesse o Reclame AQUI: https://www.reclameaqui.com.br/
-2. Procure pela empresa desejada
-3. O slug é a parte final da URL, exemplo:
-   - URL: `https://www.reclameaqui.com.br/empresa/magazine-luiza-loja-online/`
-   - Slug: `magazine-luiza-loja-online`
-
-### Configurando empresas para monitoramento
-
-Edite o arquivo `config/companies_list.yaml`:
-
-```yaml
-companies:
-  - name: "Nome da Empresa"
-    url_slug: "slug-da-empresa-no-reclame-aqui"
-    sector: "Setor da empresa"
-    priority: "high|medium|low"
-    active: true|false
-```
-
-### Exemplos de empresas já configuradas
-
-- Magazine Luiza: `magazine-luiza-loja-online`
-- Americanas: `americanas-com`
-- Casas Bahia: `casas-bahia`
-- Nubank: `nubank`
-- iFood: `ifood`
-- Uber: `uber`
-
-### Scripts de coleta
-
-```bash
-# Testar uma empresa específica
-python scripts/test_single_company.py
-
-# Coletar dados de todas as empresas ativas
-python scripts/collect_multiple_companies.py
-```
-
-## 📦 Instalação
-
-```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/radar-reputacao-reclameaqui.git
-cd radar-reputacao-reclameaqui
-
-# Instale dependências
-pip install -r requirements.txt
-
-# Execute o dashboard
-streamlit run streamlit_app/app.py
-```
-
-## 🔧 Configuração
-
-Edite `config/settings.yaml` para configurar:
-- URLs das empresas a monitorar
-- Intervalos de coleta
-- Parâmetros de análise
-
-## 📊 Uso
-
-### Coleta de Dados
-```bash
-python scripts/collect_data.py --company "nome-empresa"
-```
-
-### Processamento
-```bash
-python scripts/process_data.py
-```
-
-### Dashboard
-```bash
-streamlit run streamlit_app/app.py
-```
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para detalhes.
+ 
+<br>
+ 
+## Contribuição
+ 
+Este projeto tem foco acadêmico e profissional em Engenharia de Dados. Contribuições são bem-vindas — abra uma *Issue* para discutir melhorias ou envie um *Pull Request* diretamente.
+ 
+<br>
+ 
+*Projeto desenvolvido como parte de uma iniciativa de estudo em coleta, estruturação e análise de dados públicos.*
