@@ -9,11 +9,11 @@ description = "Sistema completo para coleta, análise e visualização de dados 
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.8"
-authors = [
-    {name = "Seu Nome", email = "seu.email@exemplo.com"},
+author = [
+    {name = "Laura Almeida", email = "oddlauraink@hotmail.com"},
 ]
 maintainers = [
-    {name = "Seu Nome", email = "seu.email@exemplo.com"},
+    {name = "Laura Almeida", email = "oddlauraink@hotmail.com"},
 ]
 keywords = ["reclameaqui", "reputacao", "analise", "dashboard", "selenium"]
 classifiers = [
@@ -68,14 +68,14 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/seu-usuario/radar-reputacao-reclameaqui"
-Documentation = "https://github.com/seu-usuario/radar-reputacao-reclameaqui#readme"
-Repository = "https://github.com/seu-usuario/radar-reputacao-reclameaqui.git"
-Issues = "https://github.com/seu-usuario/radar-reputacao-reclameaqui/issues"
-Changelog = "https://github.com/seu-usuario/radar-reputacao-reclameaqui/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/ifLauraAlmeida/radar-reputacao-reclameaqui"
+Documentation = "https://github.com/ifLauraAlmeida/radar-reputacao-reclameaqui#readme"
+Repository = "https://github.com/ifLauraAlmeida/radar-reputacao-reclameaqui.git"
+Issues = "https://github.com/ifLauraAlmeida/radar-reputacao-reclameaqui/issues"
+Changelog = "https://github.com/ifLauraAlmeida/radar-reputacao-reclameaqui/blob/main/CHANGELOG.md"
 
 [project.scripts]
-radar-collect = "scripts.collect_data:cli"
+radar-collect = "scripts.main:run_pipeline"
 radar-dashboard = "streamlit_app.app:main"
 
 [tool.setuptools]
