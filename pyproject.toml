@@ -9,7 +9,7 @@ description = "Sistema completo para coleta, análise e visualização de dados 
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.8"
-author = [
+authors = [
     {name = "Laura Almeida", email = "oddlauraink@hotmail.com"},
 ]
 maintainers = [
